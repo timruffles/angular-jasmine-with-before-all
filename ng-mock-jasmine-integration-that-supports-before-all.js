@@ -2210,7 +2210,6 @@ if (window.jasmine || window.mocha) {
 
   var currentSpec = null,
       annotatedFunctions = [],
-      manualInjector = false,
       isSpecRunning = function() {
         return !!currentSpec;
       };
@@ -2223,27 +2222,13 @@ if (window.jasmine || window.mocha) {
     return angular.mock.$$annotate.apply(this, arguments);
   };
 
-  module.cleanup = cleanup;
-  module.enableManualInjector = function() {
-    manualInjector = true; 
-  };
-
-  module.disableManualInjector = function() {
-    manualInjector = false; 
-  };
 
   (window.beforeEach || window.setup)(function() {
-    if(manualInjector) return;
     annotatedFunctions = [];
     currentSpec = this;
   });
 
   (window.afterEach || window.teardown)(function() {
-    if(manualInjector) return;
-    cleanup();
-  })
-
-  function cleanup() {
     var injector = currentSpec.$injector;
 
     annotatedFunctions.forEach(function(fn) {
@@ -2275,7 +2260,7 @@ if (window.jasmine || window.mocha) {
       delete angular.callbacks[key];
     });
     angular.callbacks.counter = 0;
-  }
+  });
 
   /**
    * @ngdoc function
@@ -2296,36 +2281,24 @@ if (window.jasmine || window.mocha) {
    *        object literal is passed they will be registered as values in the module, the key being
    *        the module name and the value being what is returned.
    */
-  window.module = angular.mock.module = module;
-
-  function module() {
+  window.module = angular.mock.module = function() {
     var moduleFns = Array.prototype.slice.call(arguments, 0);
     return isSpecRunning() ? workFn() : workFn;
     /////////////////////
     function workFn() {
-      if(manualInjector && !currentSpec) {
-        currentSpec = {};
-        annotatedFunctions = [];
-      }
-
       if (currentSpec.$injector) {
         throw new Error('Injector already created, can not register a module!');
       } else {
-        var fn, modules = currentSpec.$modules || (currentSpec.$modules = []);
+        var modules = currentSpec.$modules || (currentSpec.$modules = []);
         angular.forEach(moduleFns, function(module) {
           if (angular.isObject(module) && !angular.isArray(module)) {
-            fn = function($provide) {
+            modules.push(function($provide) {
               angular.forEach(module, function(value, key) {
                 $provide.value(key, value);
               });
-            };
+            });
           } else {
-            fn = module;
-          }
-          if (currentSpec.$providerInjector) {
-            currentSpec.$providerInjector.invoke(fn);
-          } else {
-            modules.push(fn);
+            modules.push(module);
           }
         });
       }
@@ -2439,11 +2412,8 @@ if (window.jasmine || window.mocha) {
     function workFn() {
       var modules = currentSpec.$modules || [];
       var strictDi = !!currentSpec.$injectorStrict;
-      modules.unshift(function($injector) {
-        currentSpec.$providerInjector = $injector;
-      });
-      modules.unshift('ng');
       modules.unshift('ngMock');
+      modules.unshift('ng');
       var injector = currentSpec.$injector;
       if (!injector) {
         if (strictDi) {
@@ -2494,7 +2464,6 @@ if (window.jasmine || window.mocha) {
       }
     }
   };
-
 }
 
 
