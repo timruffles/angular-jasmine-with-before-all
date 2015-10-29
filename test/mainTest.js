@@ -1,5 +1,7 @@
 describe('main', function() {
 
+  beforeAll(module.enableManualInjector)
+
   beforeAll(module("main", function($provide) {
     $provide.value("stubMe", {
       service: "stubbed",
@@ -16,6 +18,7 @@ describe('main', function() {
   }))
 
   afterAll(module.cleanup);
+  afterAll(module.disableManualInjector);
 
   beforeEach(function() {
     beforeEachRuns += 1; 
