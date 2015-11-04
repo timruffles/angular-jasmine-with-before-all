@@ -2223,22 +2223,6 @@ if (window.jasmine || window.mocha) {
     return angular.mock.$$annotate.apply(this, arguments);
   };
 
-  var idx = 0;
-  module.sharedInjector = function() {
-    beforeAll(function() {
-      if(!currentSpec) {
-        currentSpec = {};
-        annotatedFunctions = [];
-      }
-      manualInjector = true; 
-    });
-
-    afterAll(function() {
-      manualInjector = false;
-      cleanup();
-    });
-  };
-
   (window.beforeEach || window.setup)(function() {
     if(manualInjector) return;
     annotatedFunctions = [];
@@ -2247,10 +2231,60 @@ if (window.jasmine || window.mocha) {
 
   (window.afterEach || window.teardown)(function() {
     if(manualInjector) return;
-    cleanup();
-  })
+    module.$$cleanup();
+  });
 
-  function cleanup() {
+  
+  /**
+   * @ngdoc function
+   * @name angular.mock.module
+   * @description
+   *
+   * *NOTE*: This function is also published on window for easy access.<br>
+   * *NOTE*: This function is declared ONLY WHEN running tests with jasmine or mocha
+   *
+   * This function registers a module configuration code. It collects the configuration information
+   * which will be used when the injector is created by {@link angular.mock.inject inject}.
+   *
+   * See {@link angular.mock.inject inject} for usage example
+   *
+   * @param {...(string|Function|Object)} fns any number of modules which are represented as string
+   *        aliases or as anonymous module initialization functions. The modules are used to
+   *        configure the injector. The 'ng' and 'ngMock' modules are automatically loaded. If an
+   *        object literal is passed they will be registered as values in the module, the key being
+   *        the module name and the value being what is returned.
+   */
+  window.module = angular.mock.module = function() {
+    var moduleFns = Array.prototype.slice.call(arguments, 0);
+    return isSpecRunning() ? workFn() : workFn;
+    /////////////////////
+    function workFn() {
+
+      if (currentSpec.$injector) {
+        throw new Error('Injector already created, can not register a module!');
+      } else {
+        var fn, modules = currentSpec.$modules || (currentSpec.$modules = []);
+        angular.forEach(moduleFns, function(module) {
+          if (angular.isObject(module) && !angular.isArray(module)) {
+            fn = function($provide) {
+              angular.forEach(module, function(value, key) {
+                $provide.value(key, value);
+              });
+            };
+          } else {
+            fn = module;
+          }
+          if (currentSpec.$providerInjector) {
+            currentSpec.$providerInjector.invoke(fn);
+          } else {
+            modules.push(fn);
+          }
+        });
+      }
+    }
+  };
+
+  module.$$cleanup = function() {
     var injector = currentSpec.$injector;
 
     annotatedFunctions.forEach(function(fn) {
@@ -2282,58 +2316,23 @@ if (window.jasmine || window.mocha) {
       delete angular.callbacks[key];
     });
     angular.callbacks.counter = 0;
-  }
-
-  /**
-   * @ngdoc function
-   * @name angular.mock.module
-   * @description
-   *
-   * *NOTE*: This function is also published on window for easy access.<br>
-   * *NOTE*: This function is declared ONLY WHEN running tests with jasmine or mocha
-   *
-   * This function registers a module configuration code. It collects the configuration information
-   * which will be used when the injector is created by {@link angular.mock.inject inject}.
-   *
-   * See {@link angular.mock.inject inject} for usage example
-   *
-   * @param {...(string|Function|Object)} fns any number of modules which are represented as string
-   *        aliases or as anonymous module initialization functions. The modules are used to
-   *        configure the injector. The 'ng' and 'ngMock' modules are automatically loaded. If an
-   *        object literal is passed they will be registered as values in the module, the key being
-   *        the module name and the value being what is returned.
-   */
-  window.module = angular.mock.module = module;
-
-  function module() {
-    var moduleFns = Array.prototype.slice.call(arguments, 0);
-    return isSpecRunning() ? workFn() : workFn;
-    /////////////////////
-    function workFn() {
-
-      if (currentSpec.$injector) {
-        throw new Error('Injector already created, can not register a module!');
-      } else {
-        var fn, modules = currentSpec.$modules || (currentSpec.$modules = []);
-        angular.forEach(moduleFns, function(module) {
-          if (angular.isObject(module) && !angular.isArray(module)) {
-            fn = function($provide) {
-              angular.forEach(module, function(value, key) {
-                $provide.value(key, value);
-              });
-            };
-          } else {
-            fn = module;
-          }
-          if (currentSpec.$providerInjector) {
-            currentSpec.$providerInjector.invoke(fn);
-          } else {
-            modules.push(fn);
-          }
-        });
-      }
-    }
   };
+
+  module.sharedInjector = function() {
+    beforeAll(function() {
+      if(!currentSpec) {
+        currentSpec = {};
+        annotatedFunctions = [];
+      }
+      manualInjector = true; 
+    });
+
+    afterAll(function() {
+      manualInjector = false;
+      module.$$cleanup();
+    });
+  };
+
 
   /**
    * @ngdoc function
