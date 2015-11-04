@@ -2223,13 +2223,20 @@ if (window.jasmine || window.mocha) {
     return angular.mock.$$annotate.apply(this, arguments);
   };
 
-  module.cleanup = cleanup;
-  module.enableManualInjector = function() {
-    manualInjector = true; 
-  };
+  var idx = 0;
+  module.sharedInjector = function() {
+    beforeAll(function() {
+      if(!currentSpec) {
+        currentSpec = {};
+        annotatedFunctions = [];
+      }
+      manualInjector = true; 
+    });
 
-  module.disableManualInjector = function() {
-    manualInjector = false; 
+    afterAll(function() {
+      manualInjector = false;
+      cleanup();
+    });
   };
 
   (window.beforeEach || window.setup)(function() {
@@ -2303,10 +2310,6 @@ if (window.jasmine || window.mocha) {
     return isSpecRunning() ? workFn() : workFn;
     /////////////////////
     function workFn() {
-      if(manualInjector && !currentSpec) {
-        currentSpec = {};
-        annotatedFunctions = [];
-      }
 
       if (currentSpec.$injector) {
         throw new Error('Injector already created, can not register a module!');
