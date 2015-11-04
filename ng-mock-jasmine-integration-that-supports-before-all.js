@@ -2439,11 +2439,11 @@ if (window.jasmine || window.mocha) {
     function workFn() {
       var modules = currentSpec.$modules || [];
       var strictDi = !!currentSpec.$injectorStrict;
+      modules.unshift('ngMock');
       modules.unshift(function($injector) {
         currentSpec.$providerInjector = $injector;
       });
       modules.unshift('ng');
-      modules.unshift('ngMock');
       var injector = currentSpec.$injector;
       if (!injector) {
         if (strictDi) {
